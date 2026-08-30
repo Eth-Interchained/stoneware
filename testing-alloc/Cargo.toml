@@ -7,7 +7,7 @@ rust-version = "1.88"
 publish = false
 
 [dev-dependencies]
-askama = { path = "../askama", default-features = false, features = ["alloc", "derive"] }
+askama = { package = "stoneware", path = "../askama", default-features = false, features = ["alloc", "derive"] }
 
 assert_matches = "1.5.0"
 

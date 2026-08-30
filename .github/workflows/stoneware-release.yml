@@ -1,0 +1,57 @@
+name: stoneware release
+
+# Fires on version tags. Gate first (fmt + clippy + full test suite, both
+# stoneware feature sets), then publish the four crates to crates.io in
+# dependency order. cargo waits for index propagation between publishes.
+on:
+  push:
+    tags: ['v*']
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: fmt
+        run: cargo fmt --all --check
+      - name: clippy (default features)
+        run: cargo clippy --workspace --all-targets -- -D warnings
+      - name: clippy (greenware-nedb)
+        run: cargo clippy -p stoneware --features greenware-nedb --all-targets -- -D warnings
+      - name: clippy (derive nedb)
+        run: cargo clippy -p stoneware-derive --features nedb --all-targets -- -D warnings
+      - name: test (workspace)
+        run: cargo test --workspace
+      - name: test (greenware-nedb)
+        run: cargo test -p stoneware --features greenware-nedb
+      - name: test (derive nedb)
+        run: cargo test -p stoneware-derive --features nedb
+
+  publish:
+    needs: gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: publish stoneware-parser
+        run: cargo publish -p stoneware-parser
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+      - name: publish stoneware-derive
+        run: cargo publish -p stoneware-derive
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+      - name: publish stoneware-macros
+        run: cargo publish -p stoneware-macros
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+      - name: publish stoneware
+        run: cargo publish -p stoneware
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}

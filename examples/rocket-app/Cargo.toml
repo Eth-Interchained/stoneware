@@ -8,7 +8,7 @@ publish = false
 # This is an example application that uses both askama as template engine,
 # and rocket as your web-framework.
 [dependencies]
-askama = { path = "../../askama" }
+askama = { package = "stoneware", path = "../../askama" }
 rocket = "0.5.1"
 
 # strum is used to parse and serialize information between web requests,

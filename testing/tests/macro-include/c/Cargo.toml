@@ -7,6 +7,6 @@ path = "./lib.rs"
 
 [dependencies]
 a = { path = "../a" }
-askama = { path = "../../../../askama" }
+askama = { package = "stoneware", path = "../../../../askama" }
 
 [workspace]

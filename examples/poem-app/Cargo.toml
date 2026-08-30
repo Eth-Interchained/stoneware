@@ -8,7 +8,7 @@ publish = false
 # This is an example application that uses both askama as template engine,
 # and poem as your web-framework.
 [dependencies]
-askama = { path = "../../askama" }
+askama = { package = "stoneware", path = "../../askama" }
 poem = "3.1.6"
 tokio = { version = "1.43.0", features = ["macros", "rt-multi-thread"] }
 

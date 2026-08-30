@@ -11,7 +11,7 @@ name = "all"
 harness = false
 
 [dependencies]
-askama = { path = "../askama" }
+askama = { package = "stoneware", path = "../askama" }
 
 serde_json = { version = "1.0", optional = true }
 serde = { version = "1.0", features = ["derive"] }
@@ -20,8 +20,8 @@ serde = { version = "1.0", features = ["derive"] }
 core = { package = "intentionally-empty", version = "1.0.0" }
 
 [dev-dependencies]
-askama = { path = "../askama", features = ["code-in-doc", "serde_json", "greenware"] }
-askama_parser = { path = "../askama_parser" }
+askama = { package = "stoneware", path = "../askama", features = ["code-in-doc", "serde_json", "greenware"] }
+askama_parser = { package = "stoneware-parser", path = "../askama_parser" }
 
 assert_matches = "1.5.0"
 criterion = "0.8"
