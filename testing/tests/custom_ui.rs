@@ -47,7 +47,7 @@ edition = "2024"
 [workspace]
 
 [dependencies]
-askama = {{ path = {:?} }}
+askama = {{ package = "stoneware", path = {:?} }}
 
 [[bin]]
 name = "main"

@@ -10,4 +10,4 @@ publish = false
 path = "lib.rs"
 
 [dependencies]
-askama = { path = "../../../askama" }
+askama = { package = "stoneware", path = "../../../askama" }

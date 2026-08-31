@@ -1,5 +1,5 @@
 [package]
-name = "askama_parser"
+name = "stoneware-parser"
 version.workspace = true
 description = "Parser for Askama templates"
 documentation = "https://docs.rs/askama"
@@ -11,6 +11,10 @@ license.workspace = true
 readme.workspace = true
 edition.workspace = true
 rust-version.workspace = true
+
+# import name stays `askama_parser` (full identifier rename comes later)
+[lib]
+name = "askama_parser"
 
 [package.metadata.docs.rs]
 all-features = true

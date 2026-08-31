@@ -11,4 +11,4 @@ publish = false
 members = ["."]
 
 [dependencies]
-askama = { path = "../../askama" }
+askama = { package = "stoneware", path = "../../askama" }

@@ -1,5 +1,5 @@
 [package]
-name = "askama_macros"
+name = "stoneware-macros"
 version.workspace = true
 description = "Procedural macro package for Askama"
 homepage.workspace = true
@@ -14,10 +14,11 @@ all-features = true
 rustdoc-args = ["--generate-link-to-definition", "--cfg=docsrs"]
 
 [lib]
+name = "askama_macros"
 proc-macro = true
 
 [dependencies]
-askama_derive = { package = "askama_derive", path = "../askama_derive", version = "=0.16.0", default-features = false, features = ["external-sources", "proc-macro"] }
+askama_derive = { package = "stoneware-derive", path = "../askama_derive", version = "=0.1.0", default-features = false, features = ["external-sources", "proc-macro"] }
 
 [features]
 default = ["config", "derive", "std", "urlencode"]

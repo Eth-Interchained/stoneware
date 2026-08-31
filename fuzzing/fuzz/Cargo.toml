@@ -13,9 +13,9 @@ all-features = true
 rustdoc-args = ["--generate-link-to-definition", "--cfg=docsrs"]
 
 [dependencies]
-askama = { path = "../../askama", features = ["serde_json"] }
-askama_parser = { path = "../../askama_parser" }
-askama_derive = { path = "../../askama_derive", default-features = false, features = ["serde_json", "std", "urlencode"] }
+askama = { package = "stoneware", path = "../../askama", features = ["serde_json"] }
+askama_parser = { package = "stoneware-parser", path = "../../askama_parser" }
+askama_derive = { package = "stoneware-derive", path = "../../askama_derive", default-features = false, features = ["serde_json", "std", "urlencode"] }
 
 arbitrary = { version = "1.3.2", features = ["derive"] }
 html-escape = "0.2.13"

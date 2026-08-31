@@ -7,8 +7,8 @@ rust-version = "1.88"
 publish = false
 
 [dependencies]
-askama = { path = "../askama", default-features = false, features = ["std"] }
-askama_macros = { path = "../askama_macros", features = ["std"] }
+askama = { package = "stoneware", path = "../askama", default-features = false, features = ["std"] }
+askama_macros = { package = "stoneware-macros", path = "../askama_macros", features = ["std"] }
 
 [features]
 default = []

@@ -10,6 +10,7 @@ license.workspace = true
 readme.workspace = true
 edition.workspace = true
 rust-version.workspace = true
+publish = false
 
 [package.metadata.docs.rs]
 rustdoc-args = ["--generate-link-to-definition", "--cfg=docsrs"]

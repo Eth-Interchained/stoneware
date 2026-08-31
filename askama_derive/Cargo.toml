@@ -1,5 +1,5 @@
 [package]
-name = "askama_derive"
+name = "stoneware-derive"
 version.workspace = true
 description = "Code generator of Askama templating engine"
 homepage = "https://github.com/askama-rs/askama"
@@ -8,6 +8,9 @@ license.workspace = true
 readme.workspace = true
 edition.workspace = true
 rust-version.workspace = true
+
+[lib]
+name = "askama_derive"
 
 [package.metadata.docs.rs]
 all-features = true
@@ -22,7 +25,7 @@ name = "derive-template"
 harness = false
 
 [dependencies]
-parser = { package = "askama_parser", version = "=0.16.0", path = "../askama_parser" }
+parser = { package = "stoneware-parser", version = "=0.1.0", path = "../askama_parser" }
 
 basic-toml = { version = "0.1.1", optional = true }
 glob = { version = "0.3.3", optional = true }
