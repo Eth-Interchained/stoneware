@@ -89,14 +89,28 @@ fn render_greenware<T: serde::Serialize>(
     tmpl: &T,
 ) -> Result<String, crate::Error> {
     let inner = || -> Result<String, GreenwareError> {
-        if let Ok(spec) = std::env::var("STONEWARE_TEMPLATE_SOURCE") {
-            return err(format!(
-                "STONEWARE_TEMPLATE_SOURCE='{spec}' is set, but greenware runtime reads \
-                 only support the filesystem so far — unset it, or use the fired render"
-            ));
-        }
         let ctx = serde_json::to_value(tmpl)
             .map_err(|e| GreenwareError(format!("cannot serialize template context: {e}")))?;
+        if let Ok(spec) = std::env::var("STONEWARE_TEMPLATE_SOURCE") {
+            if let Some(root) = spec.strip_prefix("nedb:") {
+                #[cfg(feature = "greenware-nedb")]
+                {
+                    return nedb_rt::render_from_store(root, original_path, &ctx, escape_html);
+                }
+                #[cfg(not(feature = "greenware-nedb"))]
+                {
+                    let _ = root;
+                    return err(format!(
+                        "STONEWARE_TEMPLATE_SOURCE='{spec}' requires askama feature \
+                         'greenware-nedb', which is not compiled in — enable it, or unset \
+                         the variable"
+                    ));
+                }
+            }
+            return err(format!(
+                "unknown STONEWARE_TEMPLATE_SOURCE spec '{spec}' (expected 'nedb:<db-root>')"
+            ));
+        }
         let read = |path: &str, relative_to: &str| -> Result<String, String> {
             // Includes are resolved relative to the including file's directory,
             // mirroring the compile-time resolution closely enough for dev use;
@@ -788,6 +802,137 @@ impl Renderer<'_> {
                 "cannot render an array/object directly — the fired render would not have \
                  compiled this either",
             ),
+        }
+    }
+}
+
+/// Runtime template reads from an embedded NEDB store (`greenware-nedb`).
+///
+/// Templates live in the `templates` collection, row id = template path as
+/// written (matching the compile-time `NedbSource` in stoneware's derive).
+/// Rows are read fresh on every render — edit a row, refresh, see it — and
+/// every row keeps its `caused_by` lineage, so the store answers both "what
+/// renders now" and "how did it get this way".
+#[cfg(feature = "greenware-nedb")]
+mod nedb_rt {
+    use std::sync::{Arc, Mutex, OnceLock};
+
+    use super::*;
+
+    fn db_for(root: &str) -> Result<Arc<nedb_engine::Db>, GreenwareError> {
+        static DBS: OnceLock<Mutex<HashMap<String, Arc<nedb_engine::Db>>>> = OnceLock::new();
+        let dbs = DBS.get_or_init(|| Mutex::new(HashMap::new()));
+        let mut map = dbs
+            .lock()
+            .map_err(|_| GreenwareError("greenware NEDB registry poisoned".into()))?;
+        if let Some(db) = map.get(root) {
+            return Ok(Arc::clone(db));
+        }
+        let db = nedb_engine::Db::open(Path::new(root), None)
+            .map_err(|e| GreenwareError(format!("cannot open NEDB store at '{root}': {e}")))?;
+        let db = Arc::new(db);
+        map.insert(root.to_owned(), Arc::clone(&db));
+        Ok(db)
+    }
+
+    fn read_template(db: &nedb_engine::Db, id: &str) -> Result<String, GreenwareError> {
+        let node = db.get("templates", id).ok_or_else(|| {
+            GreenwareError(format!(
+                "template '{id}' not found in NEDB store (collection 'templates', \
+                 id = template path as written)"
+            ))
+        })?;
+        match node.data.get("body").and_then(|b| b.as_str()) {
+            Some(body) => Ok(body.to_owned()),
+            None => Err(GreenwareError(format!(
+                "template '{id}' has no string 'body' field (seq {}, hash {})",
+                node.seq, node.hash
+            ))),
+        }
+    }
+
+    pub(super) fn render_from_store(
+        root: &str,
+        original_path: &str,
+        ctx: &Value,
+        escape_html: bool,
+    ) -> Result<String, GreenwareError> {
+        let db = db_for(root)?;
+        let src = read_template(&db, original_path)?;
+        let include_db = Arc::clone(&db);
+        let read = move |path: &str, _from: &str| -> Result<String, String> {
+            read_template(&include_db, path).map_err(|e| e.0)
+        };
+        render_str(&src, original_path, ctx, escape_html, &read, 0)
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        fn temp_db(name: &str) -> std::path::PathBuf {
+            let dir = std::env::temp_dir()
+                .join("stoneware-greenware-nedb-test")
+                .join(format!("{name}-{}", std::process::id()));
+            let _ = std::fs::remove_dir_all(&dir);
+            std::fs::create_dir_all(&dir).unwrap();
+            dir
+        }
+
+        fn put(db: &nedb_engine::Db, id: &str, body: &str) -> nedb_engine::store::Node {
+            let caused_by = match db.get("templates", id) {
+                Some(prev) => vec![prev.hash],
+                None => Vec::new(),
+            };
+            db.put(
+                "templates",
+                id,
+                serde_json::json!({ "body": body }),
+                caused_by,
+                None,
+                None,
+            )
+            .unwrap()
+        }
+
+        #[test]
+        fn renders_from_store_with_includes_and_hot_edits() {
+            let root = temp_db("hot");
+            let root_s = root.display().to_string();
+            let db = db_for(&root_s).unwrap();
+
+            put(
+                &db,
+                "page.html",
+                "v1: {{ name }} {% include \"part.html\" %}",
+            );
+            let v1_part = put(&db, "part.html", "[{{ name }}]");
+
+            let ctx = serde_json::json!({ "name": "Vex" });
+            let out = render_from_store(&root_s, "page.html", &ctx, true).unwrap();
+            assert_eq!(out, "v1: Vex [Vex]");
+
+            // Hot edit: a new version of the include, caused_by chained.
+            let v2_part = put(&db, "part.html", "<{{ name }}>");
+            assert_eq!(v2_part.caused_by, vec![v1_part.hash.clone()]);
+
+            // Literal angle brackets are author-written template text —
+            // never escaped (only interpolated values are), same as fired.
+            let out = render_from_store(&root_s, "page.html", &ctx, true).unwrap();
+            assert_eq!(out, "v1: Vex <Vex>");
+
+            // The lineage is queryable: TRACE from v2 reaches v1.
+            let lineage = db.trace(&v2_part.hash, false, 10);
+            assert!(lineage.iter().any(|n| n.hash == v1_part.hash));
+        }
+
+        #[test]
+        fn missing_template_is_loud() {
+            let root = temp_db("missing");
+            let root_s = root.display().to_string();
+            let ctx = serde_json::json!({});
+            let e = render_from_store(&root_s, "ghost.html", &ctx, true).unwrap_err();
+            assert!(e.0.contains("ghost.html"), "got: {}", e.0);
         }
     }
 }
